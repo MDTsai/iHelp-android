@@ -4,17 +4,26 @@
     android:layout_height="fill_parent"
     android:orientation="vertical" >
 
-    <TextView
+    <LinearLayout 
+        
         android:layout_width="fill_parent"
-        android:layout_height="0dp"
+        android:layout_height="50dp"
         android:layout_weight="2"
         android:background="@drawable/futerbar"
         android:gravity="center"
         android:orientation="vertical"
-        android:text="@string/app_name"
-        android:textColor="@android:color/white"
-        android:textSize="30sp" >
-    </TextView>
+        >
+
+           <TextView
+               android:layout_width="wrap_content"
+               android:layout_height="wrap_content"
+               android:text="首頁"
+               android:textColor="#eeeeee"
+               android:textSize="28sp" >
+           </TextView>
+        
+    </LinearLayout>
+
 
     <LinearLayout
         android:layout_width="fill_parent"
