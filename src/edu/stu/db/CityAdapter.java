@@ -7,54 +7,54 @@ import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
-public class TestAdapter {
+public class CityAdapter {
     protected static final String TAG = "DataAdapter";
 
     private final Context mContext;
     private SQLiteDatabase mDb;
     private DataBaseHelper mDbHelper;
 
-    public TestAdapter(Context context) {
-        this.mContext = context;
-        mDbHelper = new DataBaseHelper(mContext);
+    public CityAdapter(Context context) {
+	this.mContext = context;
+	mDbHelper = new DataBaseHelper(mContext);
     }
 
-    public TestAdapter createDatabase() throws SQLException {
-        try {
-            mDbHelper.createDataBase();
-        } catch (IOException mIOException) {
-            Log.e(TAG, mIOException.toString() + "  UnableToCreateDatabase");
-            throw new Error("UnableToCreateDatabase");
-        }
-        return this;
+    public CityAdapter createDatabase() throws SQLException {
+	try {
+	    mDbHelper.createDataBase();
+	} catch (IOException mIOException) {
+	    Log.e(TAG, mIOException.toString() + "  UnableToCreateDatabase");
+	    throw new Error("UnableToCreateDatabase");
+	}
+	return this;
     }
 
-    public TestAdapter open() throws SQLException {
-        try {
-            mDbHelper.openDataBase();
-            mDbHelper.close();
-            mDb = mDbHelper.getReadableDatabase();
-        } catch (SQLException mSQLException) {
-            Log.e(TAG, "open >>" + mSQLException.toString());
-            throw mSQLException;
-        }
-        return this;
+    public CityAdapter open() throws SQLException {
+	try {
+	    mDbHelper.openDataBase();
+	    mDbHelper.close();
+	    mDb = mDbHelper.getReadableDatabase();
+	} catch (SQLException mSQLException) {
+	    Log.e(TAG, "open >>" + mSQLException.toString());
+	    throw mSQLException;
+	}
+	return this;
     }
 
     public void close() {
-        mDbHelper.close();
+	mDbHelper.close();
     }
 
     public Cursor getTestData() {
-        try {
-            String sql = "SELECT * FROM city";
+	try {
+	    String sql = "SELECT * FROM city";
 
-            Cursor mCur = mDb.rawQuery(sql, null);
-            return mCur;
-        } catch (SQLException mSQLException) {
-            Log.e(TAG, "getTestData >>" + mSQLException.toString());
-            throw mSQLException;
-        }
+	    Cursor mCur = mDb.rawQuery(sql, null);
+	    return mCur;
+	} catch (SQLException mSQLException) {
+	    Log.e(TAG, "getTestData >>" + mSQLException.toString());
+	    throw mSQLException;
+	}
     }
 
     public Cursor getCityCoordinates(int city_id, int city_group) {
