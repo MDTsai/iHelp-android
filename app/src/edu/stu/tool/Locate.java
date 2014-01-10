@@ -20,6 +20,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -29,6 +30,7 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -48,8 +50,11 @@ public class Locate implements LocationListener {
     boolean canGetLocation = false;
 
     Location location; // location
+    long locationCachedTime = 0;
     double latitude; // latitude
     double longitude; // longitude
+
+    private static final long LOCATION_EXPIRE_SPAN_IN_NANO = 5 * 60 * 1000 * 1000 * 1000;
 
     // The minimum distance to change Updates in meters
     private static final long MIN_DISTANCE_CHANGE_FOR_UPDATES = 10; // 10 meters
@@ -62,66 +67,81 @@ public class Locate implements LocationListener {
 
     public Locate(Context context) {
         this.mContext = context;
-        getLocation();
+
+        locationManager = (LocationManager) mContext.getSystemService(mContext.LOCATION_SERVICE);
+
+        // Set canGetLocation to true temporary if the GPS/Network provider is available
+        if (locationManager != null) {
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                // Setup GPS listener
+                locationManager.requestLocationUpdates(
+                        LocationManager.GPS_PROVIDER,
+                        MIN_TIME_BW_UPDATES,
+                        MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+                this.canGetLocation = true;
+            } else if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                // Setup Network listener
+                locationManager.requestLocationUpdates(
+                        LocationManager.NETWORK_PROVIDER,
+                        MIN_TIME_BW_UPDATES,
+                        MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
+                this.canGetLocation = true;
+            } else {
+                this.canGetLocation = false;
+            }
+        }
+
+        if (canGetLocation) {
+            getLocation();
+        }
     }
 
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
     public Location getLocation() {
-        try {
-            locationManager = (LocationManager) mContext
-                    .getSystemService(mContext.LOCATION_SERVICE);
+        Location l = null;
 
-            // getting GPS status
-            isGPSEnabled = locationManager
-                    .isProviderEnabled(LocationManager.GPS_PROVIDER);
+        Location lastLoc = null;
+        if (locationManager != null) {
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                // Get last GPS location
+                lastLoc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            } else if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                // Get last Network location
+                lastLoc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            }
+        }
 
-            // getting network status
-            isNetworkEnabled = locationManager
-                    .isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-
-            if (!isGPSEnabled && !isNetworkEnabled) {
-                // no network provider is enabled
-            } else {
-                this.canGetLocation = true;
-                if (isNetworkEnabled) {
-                    locationManager.requestLocationUpdates(
-                            LocationManager.NETWORK_PROVIDER,
-                            MIN_TIME_BW_UPDATES,
-                            MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
-                    Log.d("Network", "Network");
-                    if (locationManager != null) {
-                        location = locationManager
-                                .getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-                        if (location != null) {
-                            latitude = location.getLatitude();
-                            longitude = location.getLongitude();
-                        }
-                    }
-                }
-                // if GPS Enabled get lat/long using GPS Services
-                if (isGPSEnabled) {
-                    if (location == null) {
-                        locationManager.requestLocationUpdates(
-                                LocationManager.GPS_PROVIDER,
-                                MIN_TIME_BW_UPDATES,
-                                MIN_DISTANCE_CHANGE_FOR_UPDATES, this);
-                        Log.d("GPS Enabled", "GPS Enabled");
-                        if (locationManager != null) {
-                            location = locationManager
-                                    .getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                            if (location != null) {
-                                latitude = location.getLatitude();
-                                longitude = location.getLongitude();
-                            }
-                        }
-                    }
+        if (android.os.Build.VERSION.SDK_INT >=17 ) {
+            // Rule: Chcek if location outdated, try to get from last known, save to cached then return
+            // Finally, nothing is available, return null
+            if (this.location != null) {
+                // less than 5 minutes
+                if ((android.os.SystemClock.elapsedRealtimeNanos() - this.location.getElapsedRealtimeNanos()) <  LOCATION_EXPIRE_SPAN_IN_NANO) {
+                    l = this.location;
                 }
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+            if (l == null) {
+              if (lastLoc != null && (android.os.SystemClock.elapsedRealtime() - lastLoc.getElapsedRealtimeNanos() < LOCATION_EXPIRE_SPAN_IN_NANO )) {
+                    this.location = lastLoc;
+                    l = lastLoc;
+                }
+            }
+        } else {
+            // Rule: If can't use rlapsedRealtime, follow original getLocation
+            l = lastLoc;
         }
 
-        return location;
+        if (l != null) {
+            this.location = l;
+            latitude = location.getLatitude();
+            longitude = location.getLongitude();
+        } else {
+            // Add addition rule for General.java because there is no available location (out of dated)
+            this.canGetLocation = false;
+        }
+
+        return l;
     }
 
     /**
@@ -129,9 +149,9 @@ public class Locate implements LocationListener {
      * app
      * */
     public void stopUsingGPS() {
-        if (locationManager != null) {
-            locationManager.removeUpdates(Locate.this);
-        }
+    }
+
+    public void startUsingGPS() {
     }
 
     public String getPosition() {
@@ -149,6 +169,15 @@ public class Locate implements LocationListener {
         return this.canGetLocation;
     }
 
+    /**
+     * Function to check if there is available Location
+     * 
+     * @return boolean
+     * */
+    public boolean hasAvailableLocation() {
+        return this.location != null;
+    }
+    
     /**
      * Function to show settings alert dialog On pressing Settings button will
      * lauch Settings Options
@@ -182,8 +211,9 @@ public class Locate implements LocationListener {
     }
 
     @Override
-    public void onLocationChanged(Location location) {
-
+    public void onLocationChanged(Location l) {
+        this.location = l;
+        locationCachedTime = System.currentTimeMillis();
     }
 
     @Override

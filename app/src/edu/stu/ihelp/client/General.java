@@ -108,7 +108,7 @@ public class General extends Activity {
             gps.showSettingsAlert();
         }
 
-        if (checkIntrnet() && gps.canGetLocation()) {
+        if (checkIntrnet() && gps.canGetLocation() && gps.hasAvailableLocation()) {
             try {
                 address = gps.getAddress();
             } catch (InterruptedException e) {
